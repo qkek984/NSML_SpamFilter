@@ -7,7 +7,9 @@ from warnings import warn
 
 import keras_preprocessing
 from keras_preprocessing.image import ImageDataGenerator
-from keras.applications.resnet_v2 import preprocess_input
+#from keras.applications.resnet_v2 import preprocess_input
+#from keras.applications.inception_resnet_v2 import preprocess_input
+from keras.applications.xception import preprocess_input
 import pandas as pd
 from nsml.constants import DATASET_PATH
 
