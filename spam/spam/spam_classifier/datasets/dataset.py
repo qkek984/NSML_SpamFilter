@@ -8,7 +8,6 @@ from warnings import warn
 import keras_preprocessing
 from keras_preprocessing.image import ImageDataGenerator
 #from keras.applications.resnet_v2 import preprocess_input
-#from keras.applications.inception_resnet_v2 import preprocess_input
 from keras.applications.xception import preprocess_input
 import pandas as pd
 from nsml.constants import DATASET_PATH
@@ -32,6 +31,7 @@ class Dataset:
         self.img_size = input_size
         self.base_dir = Path(mkdtemp())
         self._len = None
+        self._lenUnlabeled = None
         self.validation_fraction = 0.2
 
     def __del__(self):
@@ -112,15 +112,25 @@ class Dataset:
             self._len['val'] = int(self._len['train'] * self.validation_fraction)
         return self._len[dataset]
 
-    def prepare(self):
+    def lenUnlabeled(self, unlabeledset):
+        if self._lenUnlabeled is None:
+            self._lenUnlabeled = sum([len(files) for r, d, files in os.walk(self.base_dir / unlabeledset)])
+        return self._lenUnlabeled
+
+
+    def prepare(self, unlabeled=False):
         """
         The resulting folder structure is compatible with the Keras function that generates a dataset from folders.
         """
         dataset = 'train'
-        self._initialize_directory(dataset)
-        self._rearrange(dataset)
+        if unlabeled:
+            self._initialize_directory(dataset, 'unlabeledset')
+            self._rearrange(dataset, 'unlabeledset')
+        else:
+            self._initialize_directory(dataset)
+            self._rearrange(dataset)
 
-    def _initialize_directory(self, dataset: str) -> None:
+    def _initialize_directory(self, dataset: str, unlabeledset=False) -> None:
         """
         Initialized directory structure for a given dataset, in a way so that it's compatible with the Keras dataloader.
         """
@@ -128,8 +138,10 @@ class Dataset:
         dataset_path.mkdir()
         for c in self.classes:
             (dataset_path / c).mkdir()
+        if unlabeledset:
+            (self.base_dir / unlabeledset).mkdir()
 
-    def _rearrange(self, dataset: str) -> None:
+    def _rearrange(self, dataset: str, unlabeledset=False) -> None:
         """
         Then rearranges the files based on the attached metadata. The resulting format is
         --
@@ -150,11 +162,16 @@ class Dataset:
         metadata = pd.read_csv(src_dir / f'{dataset}_label')
         for _, row in metadata.iterrows():
             if row['annotation'] == UNLABELED:
-                continue
+                if unlabeledset == False:
+                    continue
+                dst = self.base_dir / unlabeledset / row['filename']
+            else:
+                dst = output_dir / self.classes[row['annotation']] / row['filename']
+
             src = src_dir / 'train_data' / row['filename']
             if not src.exists():
                 raise FileNotFoundError
-            dst = output_dir / self.classes[row['annotation']] / row['filename']
+
             if dst.exists():
                 warn(f'File {src} already exists, this should not happen. Please notify 서동필 or 방지환.')
             else:

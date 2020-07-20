@@ -1,6 +1,6 @@
 from spam.spam_classifier.datasets.dataset import Dataset
 from spam.spam_classifier.models.BasicModel import BasicModel
-from spam.spam_classifier.networks.Xception import frozen_networks
+from spam.spam_classifier.networks.Networks import frozen_networks
 
 input_size = (256, 256, 3)
 classes = ['normal', 'monotone', 'screenshot', 'unknown']
@@ -8,7 +8,7 @@ config = {
     'model': BasicModel,
     'fit_kwargs': {
         'batch_size': 64,
-        'epochs_finetune': 15,
+        'epochs_finetune': 10,
         'epochs_full': 10,
         'debug': False
     },

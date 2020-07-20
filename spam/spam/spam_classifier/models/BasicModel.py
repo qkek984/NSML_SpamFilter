@@ -26,6 +26,9 @@ class BasicModel:
     def fit(self, epochs_finetune, epochs_full, batch_size, debug=False):
         self.debug = debug
         self.data.prepare()
+        #self.data.prepare(unlabeled=True) # unlabeldata
+        #print("lenunlabeled : ",self.data.lenUnlabeled('unlabeledset'))
+
         self.network.compile(
             loss=self.loss(),
             optimizer=self.optimizer('finetune'),
@@ -89,6 +92,8 @@ class BasicModel:
         return {
             'finetune': SGD(lr=1e-4, momentum=0.9),
             'full': Adam(lr=1e-4)
+            #'finetune': Adam(),
+            #'full': Adam(lr=1e-5)
         }[stage]
 
     def fit_metrics(self) -> List[str]:
