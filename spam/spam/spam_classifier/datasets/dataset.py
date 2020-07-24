@@ -7,8 +7,8 @@ from warnings import warn
 
 import keras_preprocessing
 from keras_preprocessing.image import ImageDataGenerator
-#from keras.applications.resnet_v2 import preprocess_input
-from keras.applications.xception import preprocess_input
+#from keras.applications.xception import preprocess_input
+from keras.applications.inception_resnet_v2 import preprocess_input
 import pandas as pd
 from nsml.constants import DATASET_PATH
 
@@ -73,11 +73,19 @@ class Dataset:
             batch_size=batch_size,
             target_size=self.img_size[:-1],
             classes=self.classes,
-            shuffle=True,
+            shuffle=False,
             subset='validation')
         assert self.classes == list(iter(train_generator.class_indices))
 
         return train_generator, val_generator
+
+    def test_unlabeled_gen(self, batch_size):
+        datagen = ImageDataGenerator(preprocessing_function=preprocess_input)
+        files = [str(p.name) for p in (Path(self.base_dir / 'unlabeledset' / 'unlabeled')).glob('*.*') if p.suffix not in ['.gif', '.GIF']]
+        metadata = pd.DataFrame({'filename': files})
+        gen = datagen.flow_from_dataframe(metadata, directory=f'{self.base_dir}/unlabeledset/unlabeled', x_col='filename',
+                                          class_mode=None, shuffle=False, batch_size=batch_size)
+        return gen,files
 
     def test_gen(self, test_dir: str, batch_size: int):
         """
@@ -114,7 +122,7 @@ class Dataset:
 
     def lenUnlabeled(self, unlabeledset):
         if self._lenUnlabeled is None:
-            self._lenUnlabeled = sum([len(files) for r, d, files in os.walk(self.base_dir / unlabeledset)])
+            self._lenUnlabeled = sum([len(files) for r, d, files in os.walk(self.base_dir / unlabeledset / 'unlabeled')])
         return self._lenUnlabeled
 
 
@@ -140,6 +148,17 @@ class Dataset:
             (dataset_path / c).mkdir()
         if unlabeledset:
             (self.base_dir / unlabeledset).mkdir()
+            (self.base_dir / unlabeledset / 'unlabeled').mkdir()
+
+    def insertUnlabeledData(self, class_Unlabeled):
+        for i in range(0,len(class_Unlabeled)):
+            for img_path in class_Unlabeled[i]:
+                dataPath = self.base_dir / 'unlabeledset'/'unlabeled'/ img_path
+                if not dataPath.exists():
+                    raise FileNotFoundError
+                fileName = (img_path.split('/'))[-1]
+                target_dir =  self.base_dir / 'train' / self.classes[i] / fileName
+                shutil.copy(dataPath, target_dir)
 
     def _rearrange(self, dataset: str, unlabeledset=False) -> None:
         """
@@ -164,7 +183,7 @@ class Dataset:
             if row['annotation'] == UNLABELED:
                 if unlabeledset == False:
                     continue
-                dst = self.base_dir / unlabeledset / row['filename']
+                dst = self.base_dir / unlabeledset / 'unlabeled' / row['filename']
             else:
                 dst = output_dir / self.classes[row['annotation']] / row['filename']
 

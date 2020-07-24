@@ -24,10 +24,16 @@ class BasicModel:
         self.debug = False
 
     def fit(self, epochs_finetune, epochs_full, batch_size, debug=False):
+        '''
+        nsml.load(checkpoint='best', session='qkek984/spam-1/70')
+        nsml.save('saved')
+        exit()
+        '''
+
         self.debug = debug
-        self.data.prepare()
-        #self.data.prepare(unlabeled=True) # unlabeldata
-        #print("lenunlabeled : ",self.data.lenUnlabeled('unlabeledset'))
+        #self.data.prepare()
+        self.data.prepare(unlabeled=True) # unlabeldata
+        print("lenunlabeled : ",self.data.lenUnlabeled('unlabeledset'))# check unlabeldata
 
         self.network.compile(
             loss=self.loss(),
@@ -55,6 +61,8 @@ class BasicModel:
         self.network.load_weights(model_path_finetune)
         self.unfreeze()
 
+        self.myMetrics(val_gen=val_gen, batch_size = batch_size)#do self training
+
         self.network.compile(
             loss=self.loss(),
             optimizer=self.optimizer('full'),
@@ -62,6 +70,7 @@ class BasicModel:
         )
 
         model_path_full = 'model_full.h5'
+        train_gen, val_gen = self.data.train_val_gen(batch_size)#do self training
         self.network.fit_generator(generator=train_gen,
                                    steps_per_epoch=steps_per_epoch_train,
                                    epochs=epochs_full,
@@ -93,7 +102,7 @@ class BasicModel:
             'finetune': SGD(lr=1e-4, momentum=0.9),
             'full': Adam(lr=1e-4)
             #'finetune': Adam(),
-            #'full': Adam(lr=1e-5)
+            #'full': Adam(lr=1e-4)
         }[stage]
 
     def fit_metrics(self) -> List[str]:
@@ -129,8 +138,44 @@ class BasicModel:
         """
         gen, filenames = self.data.test_gen(test_dir=test_dir, batch_size=64)
         y_pred = self.network.predict_generator(gen)
+
         ret = pd.DataFrame({'filename': filenames, 'y_pred': np.argmax(y_pred, axis=1)})
         return ret
+
+    def myMetrics(self, val_gen, batch_size) -> None:#self supervised learning
+        class_Unlabeled = [[], [], [], []]
+        y_true, y_prob = evaluate(data_gen=val_gen, model=self.network)
+        y_true, y_pred = [np.argmax(y, axis=1) for y in [y_true, y_prob]]
+
+        for metadata in zip(y_true, y_pred, y_prob):
+            if metadata[0] != metadata[1]:
+                class_Unlabeled[metadata[0]].append(max(metadata[2]))
+
+        class_threshold = []
+        for i in range(0,len(class_Unlabeled)):
+            class_Unlabeled[i] = sorted(class_Unlabeled[i],reverse=True)
+            #class_threshold.append(sum(class_Unlabeled[i][:5])/len(class_Unlabeled[i][:5]))
+            class_threshold.append(min(class_Unlabeled[i][:5]))
+
+        print("each error: ",len(class_Unlabeled[0]),len(class_Unlabeled[1]),len(class_Unlabeled[2]),len(class_Unlabeled[3]))
+        print("to5 avg class_thresh : ",class_threshold)
+
+        ##########################################################################
+        unlabeled_gen, filenames = self.data.test_unlabeled_gen(batch_size = batch_size)
+        class_Unlabeled = [[], [], [], []]
+        output = self.network.predict_generator(unlabeled_gen)
+        pred = np.argmax(output, axis=1)
+        for metadata in zip(filenames, pred, output):
+            max_prob = max(metadata[2])
+            if class_threshold[metadata[1]] < max_prob:
+                class_Unlabeled[metadata[1]].append(metadata[0])
+
+        print("class_Unlabeled: ", len(class_Unlabeled[0]), len(class_Unlabeled[1]), len(class_Unlabeled[2]),
+              len(class_Unlabeled[3]))
+        self.data.insertUnlabeledData(class_Unlabeled)
+
+        print("sucesss !")
+
 
     def metrics(self, gen) -> None:
         """
@@ -140,8 +185,8 @@ class BasicModel:
             gen: Keras generator for which to get metrics
             n_batches: How many batches that can be fetched from the data generator.
         """
-        y_true, y_pred = evaluate(data_gen=gen, model=self.network)
-        y_true, y_pred = [np.argmax(y, axis=1) for y in [y_true, y_pred]]
+        y_true, y_prob = evaluate(data_gen=gen, model=self.network)
+        y_true, y_pred = [np.argmax(y, axis=1) for y in [y_true, y_prob]]
 
         cls_report = classification_report(
             y_true=y_true,
@@ -152,7 +197,6 @@ class BasicModel:
         )
         print(
             f'Classification report for validation dataset:\n-----------------------------\n{cls_report}\n=============\n')
-
 
 def bind_model(model: BasicModel):
     """
