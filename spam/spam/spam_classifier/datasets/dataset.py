@@ -7,8 +7,11 @@ from warnings import warn
 
 import keras_preprocessing
 from keras_preprocessing.image import ImageDataGenerator
-#from keras.applications.xception import preprocess_input
+
 from keras.applications.inception_resnet_v2 import preprocess_input
+#from keras.applications.xception import preprocess_input
+
+
 import pandas as pd
 from nsml.constants import DATASET_PATH
 
@@ -26,19 +29,28 @@ class Dataset:
     Reorders the data to have one folder per class.
     """
 
-    def __init__(self, classes, input_size):
+    def __init__(self, classes, input_size, base_dir):
         self.classes = classes
         self.img_size = input_size
-        self.base_dir = Path(mkdtemp())
+        if base_dir:
+            self.disable_prepare = True
+            self.base_dir = base_dir
+        else:
+            self.disable_prepare = False
+            self.base_dir = Path(mkdtemp())
         self._len = None
         self._lenUnlabeled = None
         self.validation_fraction = 0.2
+        self.disable_del = False
 
     def __del__(self):
         """
         Deletes the temporary folder that we created for the dataset.
         """
-        shutil.rmtree(self.base_dir)
+        if self.disable_del:
+            print("disable -> dataset.del() self.base_dir")
+        else:
+            shutil.rmtree(self.base_dir)
 
     def train_val_gen(self, batch_size: int):
         """
@@ -54,6 +66,7 @@ class Dataset:
         train_datagen = ImageDataGenerator(
             preprocessing_function=preprocess_input,
             horizontal_flip=True,
+            vertical_flip=True,
             zoom_range=0.2,
             width_shift_range=0.1,
             height_shift_range=0.1,
@@ -73,19 +86,11 @@ class Dataset:
             batch_size=batch_size,
             target_size=self.img_size[:-1],
             classes=self.classes,
-            shuffle=False,
+            shuffle=True,
             subset='validation')
         assert self.classes == list(iter(train_generator.class_indices))
 
         return train_generator, val_generator
-
-    def test_unlabeled_gen(self, batch_size):
-        datagen = ImageDataGenerator(preprocessing_function=preprocess_input)
-        files = [str(p.name) for p in (Path(self.base_dir / 'unlabeledset' / 'unlabeled')).glob('*.*') if p.suffix not in ['.gif', '.GIF']]
-        metadata = pd.DataFrame({'filename': files})
-        gen = datagen.flow_from_dataframe(metadata, directory=f'{self.base_dir}/unlabeledset/unlabeled', x_col='filename',
-                                          class_mode=None, shuffle=False, batch_size=batch_size)
-        return gen,files
 
     def test_gen(self, test_dir: str, batch_size: int):
         """
@@ -108,6 +113,14 @@ class Dataset:
                                           class_mode=None, shuffle=False, batch_size=batch_size)
         return gen, files
 
+    def test_unlabeled_gen(self, batch_size):
+        datagen = ImageDataGenerator(preprocessing_function=preprocess_input)
+        files = [str(p.name) for p in (Path(self.base_dir / 'unlabeled')).glob('*.*') if p.suffix not in ['.gif', '.GIF']]
+        metadata = pd.DataFrame({'filename': files})
+        gen = datagen.flow_from_dataframe(metadata, directory=f'{self.base_dir}/unlabeled', x_col='filename',
+                                          class_mode=None, shuffle=False, batch_size=batch_size)
+        return gen,files
+
     def len(self, dataset):
         """
         Utility function to compute the number of datapoints in a given dataset.
@@ -120,25 +133,31 @@ class Dataset:
             self._len['val'] = int(self._len['train'] * self.validation_fraction)
         return self._len[dataset]
 
-    def lenUnlabeled(self, unlabeledset):
+    def lenUnlabeled(self, unlabeled):# just for test
         if self._lenUnlabeled is None:
-            self._lenUnlabeled = sum([len(files) for r, d, files in os.walk(self.base_dir / unlabeledset / 'unlabeled')])
+            self._lenUnlabeled = sum([len(files) for r, d, files in os.walk(self.base_dir / unlabeled)])
         return self._lenUnlabeled
 
-
-    def prepare(self, unlabeled=False):
+    def prepare(self, unlabeledset=False):
         """
         The resulting folder structure is compatible with the Keras function that generates a dataset from folders.
         """
+        if self.disable_prepare:
+            print("disable -> dataset.prepare()")
+            return
+
         dataset = 'train'
-        if unlabeled:
-            self._initialize_directory(dataset, 'unlabeledset')
-            self._rearrange(dataset, 'unlabeledset')
+        unlabeled = 'unlabeled'
+        if unlabeledset:
+            self._initialize_directory(dataset, unlabeled)
+            self._rearrange(dataset, unlabeled)
+
+            self.disable_del = True
         else:
             self._initialize_directory(dataset)
             self._rearrange(dataset)
 
-    def _initialize_directory(self, dataset: str, unlabeledset=False) -> None:
+    def _initialize_directory(self, dataset: str, unlabeled = False) -> None:
         """
         Initialized directory structure for a given dataset, in a way so that it's compatible with the Keras dataloader.
         """
@@ -146,21 +165,21 @@ class Dataset:
         dataset_path.mkdir()
         for c in self.classes:
             (dataset_path / c).mkdir()
-        if unlabeledset:
-            (self.base_dir / unlabeledset).mkdir()
-            (self.base_dir / unlabeledset / 'unlabeled').mkdir()
+
+        if unlabeled:
+            (self.base_dir / unlabeled).mkdir()
 
     def insertUnlabeledData(self, class_Unlabeled):
         for i in range(0,len(class_Unlabeled)):
             for img_path in class_Unlabeled[i]:
-                dataPath = self.base_dir / 'unlabeledset'/'unlabeled'/ img_path
+                dataPath = self.base_dir / 'unlabeled' / img_path
                 if not dataPath.exists():
                     raise FileNotFoundError
                 fileName = (img_path.split('/'))[-1]
                 target_dir =  self.base_dir / 'train' / self.classes[i] / fileName
                 shutil.copy(dataPath, target_dir)
 
-    def _rearrange(self, dataset: str, unlabeledset=False) -> None:
+    def _rearrange(self, dataset: str, unlabeled=False) -> None:
         """
         Then rearranges the files based on the attached metadata. The resulting format is
         --
@@ -181,9 +200,9 @@ class Dataset:
         metadata = pd.read_csv(src_dir / f'{dataset}_label')
         for _, row in metadata.iterrows():
             if row['annotation'] == UNLABELED:
-                if unlabeledset == False:
+                if unlabeled == False:
                     continue
-                dst = self.base_dir / unlabeledset / 'unlabeled' / row['filename']
+                dst = self.base_dir / unlabeled / row['filename']
             else:
                 dst = output_dir / self.classes[row['annotation']] / row['filename']
 
