@@ -110,7 +110,7 @@ class Dataset:
         files = [str(p.name) for p in (Path(test_dir) / 'test_data').glob('*.*') if p.suffix not in ['.gif', '.GIF']]
         metadata = pd.DataFrame({'filename': files})
         gen = datagen.flow_from_dataframe(metadata, directory=f'{test_dir}/test_data', x_col='filename',
-                                          class_mode=None, shuffle=False, batch_size=batch_size)
+                                          class_mode=None, shuffle=True, batch_size=batch_size)
         return gen, files
 
     def test_unlabeled_gen(self, batch_size):

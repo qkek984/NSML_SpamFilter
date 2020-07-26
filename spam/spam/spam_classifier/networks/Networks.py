@@ -25,7 +25,6 @@ def frozen_networks(input_size, n_classes, local_weights='imagenet'):
     for layer in model_.layers:
         layer.trainable = False#불러온 모델의 웨이트를 학습하지 않도록 설정
     x = GlobalAveragePooling2D()(model_.layers[-1].output)
-    #x = Dense(512, activation='relu')(x)
     x = Dense(n_classes, activation='softmax')(x)
     frozen_model = Model(model_.input, x)
 

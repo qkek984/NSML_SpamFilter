@@ -91,9 +91,7 @@ class STModel:
         print("each error: ",len(class_Unlabeled[0]),len(class_Unlabeled[1]),len(class_Unlabeled[2]),len(class_Unlabeled[3]))
         print("to5 avg class_thresh : ",class_threshold)
         '''
-        class_threshold=[0.99999,0.999,0.999,0.99999]
-        #class_threshold = [1, 1, 1, 1]
-
+        class_threshold=[0.999999,0.99,0.99996245,0.999998]
         ##########################################################################
         unlabeled_gen, filenames = self.data.test_unlabeled_gen(batch_size = batch_size)
         class_Unlabeled = [[], [], [], []]
