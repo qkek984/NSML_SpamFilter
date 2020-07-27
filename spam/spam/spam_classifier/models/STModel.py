@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 
 from spam.spam_classifier.datasets.dataset import Dataset
-
+from spam.spam_classifier.models.utils import Metrics, NSMLReportCallback, evaluate
 
 class STModel:
     """
@@ -21,16 +21,18 @@ class STModel:
         self.debug = False
 
     def fit(self, epochs_finetune, epochs_full, batch_size, debug=False):
-        nsml.load(checkpoint='best', session='qkek984/spam-1/85')
+        nsml.load(checkpoint='best', session='qkek984/spam-1/32')
         self.debug = debug
         self.data.prepare(unlabeledset=True)
         print("lenunlabeled : ", self.data.lenUnlabeled('unlabeled'))  # check unlabeldata
+
         self.network.compile(
             loss=self.loss(),
             optimizer=self.optimizer('full'),
             metrics=self.fit_metrics()
         )
-        train_gen, val_gen = self.data.train_val_gen(batch_size)
+
+        val_gen = self.data.ST_val_gen(batch_size)
 
         self.myMetrics(val_gen=val_gen, batch_size=batch_size)  # do self training
         print("model 1 load!")
@@ -70,36 +72,39 @@ class STModel:
         return ret
 
     def myMetrics(self, val_gen, batch_size) -> None:#self supervised learning
-        '''
+
         class_Unlabeled = [[], [], [], []]
         y_true, y_prob = evaluate(data_gen=val_gen, model=self.network)
         y_true, y_pred = [np.argmax(y, axis=1) for y in [y_true, y_prob]]
 
         for metadata in zip(y_true, y_pred, y_prob):
             if metadata[0] != metadata[1]:
-                class_Unlabeled[metadata[0]].append(max(metadata[2]))
+                class_Unlabeled[metadata[1]].append(max(metadata[2]))
 
         class_threshold = []
         for i in range(0,len(class_Unlabeled)):
             class_Unlabeled[i] = sorted(class_Unlabeled[i],reverse=True)
             #class_prob = min(class_Unlabeled[i][:5])
             #class_prob = sum(class_Unlabeled[i][:5])/len(class_Unlabeled[i][:5])
-            class_prob = max(class_Unlabeled[i][:5])
+            class_prob = max(class_Unlabeled[i])
 
-            class_threshold.append(max(class_prob,1))
+            class_threshold.append(max(class_prob,0.95))
+            print("class:",i,", max_prob:",class_prob, "min_prob:",min(class_Unlabeled[i]))
+            print(class_Unlabeled[i][:10])
 
         print("each error: ",len(class_Unlabeled[0]),len(class_Unlabeled[1]),len(class_Unlabeled[2]),len(class_Unlabeled[3]))
-        print("to5 avg class_thresh : ",class_threshold)
-        '''
-        class_threshold=[0.999999,0.99,0.99996245,0.999998]
+        print("each class_thresh : ",class_threshold)
+
+        #class_threshold=[0.999999,0.99,0.99996245,0.999998]
+
         ##########################################################################
         unlabeled_gen, filenames = self.data.test_unlabeled_gen(batch_size = batch_size)
         class_Unlabeled = [[], [], [], []]
         output = self.network.predict_generator(unlabeled_gen)
         pred = np.argmax(output, axis=1)
         for metadata in zip(filenames, pred, output):
-            max_prob = max(metadata[2])
-            if class_threshold[metadata[1]] < max_prob:
+            pred_prob = max(metadata[2])
+            if class_threshold[metadata[1]] < pred_prob:
                 class_Unlabeled[metadata[1]].append(metadata[0])
 
         class_Unlabeled[0] = class_Unlabeled[0][:1000]# suppress too much data

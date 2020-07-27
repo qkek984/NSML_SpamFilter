@@ -8,7 +8,7 @@ config = {
     'model': STModel,
     'fit_kwargs': {
         'batch_size': 64,
-        'epochs_finetune': 15,
+        'epochs_finetune': 10,
         'epochs_full': 10,
         'debug': False
     },

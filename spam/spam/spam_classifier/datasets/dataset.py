@@ -8,8 +8,9 @@ from warnings import warn
 import keras_preprocessing
 from keras_preprocessing.image import ImageDataGenerator
 
-from keras.applications.inception_resnet_v2 import preprocess_input
-#from keras.applications.xception import preprocess_input
+#from keras.applications.inception_resnet_v2 import preprocess_input
+from keras.applications.xception import preprocess_input
+#from efficientnet import preprocess_input
 
 
 import pandas as pd
@@ -92,6 +93,37 @@ class Dataset:
 
         return train_generator, val_generator
 
+    def ST_val_gen(self, batch_size: int):
+
+        train_datagen = ImageDataGenerator(
+            preprocessing_function=preprocess_input,
+            horizontal_flip=True,
+            vertical_flip=True,
+            zoom_range=0.2,
+            width_shift_range=0.1,
+            height_shift_range=0.1,
+            validation_split=self.validation_fraction
+        )
+
+        train_generator = train_datagen.flow_from_directory(
+            directory=self.base_dir / 'train',
+            shuffle=True,
+            batch_size=batch_size,
+            target_size=self.img_size[:-1],
+            classes=self.classes,
+            subset='training')
+
+        val_generator = train_datagen.flow_from_directory(
+            directory=self.base_dir / 'train',
+            batch_size=batch_size,
+            target_size=self.img_size[:-1],
+            classes=self.classes,
+            shuffle=False,
+            subset='validation')
+        assert self.classes == list(iter(train_generator.class_indices))
+
+        return val_generator
+
     def test_gen(self, test_dir: str, batch_size: int):
         """
         Note that the test dataset is not rearranged.
@@ -110,7 +142,7 @@ class Dataset:
         files = [str(p.name) for p in (Path(test_dir) / 'test_data').glob('*.*') if p.suffix not in ['.gif', '.GIF']]
         metadata = pd.DataFrame({'filename': files})
         gen = datagen.flow_from_dataframe(metadata, directory=f'{test_dir}/test_data', x_col='filename',
-                                          class_mode=None, shuffle=True, batch_size=batch_size)
+                                          class_mode=None, shuffle=False, batch_size=batch_size)
         return gen, files
 
     def test_unlabeled_gen(self, batch_size):
