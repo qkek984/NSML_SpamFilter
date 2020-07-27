@@ -88,8 +88,6 @@ class BasicModel:
         return {
             'finetune': SGD(lr=1e-4, momentum=0.9),
             'full': Adam(lr=1e-4)
-            #'finetune': Adam(),
-            #'full': Adam(lr=1e-5)
         }[stage]
 
     def fit_metrics(self) -> List[str]:

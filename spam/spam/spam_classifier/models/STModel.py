@@ -21,7 +21,9 @@ class STModel:
         self.debug = False
 
     def fit(self, epochs_finetune, epochs_full, batch_size, debug=False):
-        nsml.load(checkpoint='best', session='qkek984/spam-1/32')
+        nsml.load(checkpoint='best', session='qkek984/spam-1/85')
+        #nsml.save(checkpoint='saved')
+        #exit()
         self.debug = debug
         self.data.prepare(unlabeledset=True)
         print("lenunlabeled : ", self.data.lenUnlabeled('unlabeled'))  # check unlabeldata
@@ -46,8 +48,6 @@ class STModel:
         return {
             'finetune': SGD(lr=1e-4, momentum=0.9),
             'full': Adam(lr=1e-4)
-            #'finetune': Adam(),
-            #'full': Adam(lr=1e-5)
         }[stage]
 
     def fit_metrics(self) -> List[str]:
@@ -83,26 +83,22 @@ class STModel:
 
         class_threshold = []
         for i in range(0,len(class_Unlabeled)):
-            class_Unlabeled[i] = sorted(class_Unlabeled[i],reverse=True)
-            #class_prob = min(class_Unlabeled[i][:5])
-            #class_prob = sum(class_Unlabeled[i][:5])/len(class_Unlabeled[i][:5])
             class_prob = max(class_Unlabeled[i])
 
             class_threshold.append(max(class_prob,0.95))
-            print("class:",i,", max_prob:",class_prob, "min_prob:",min(class_Unlabeled[i]))
+            print("class:",i,", max_prob:",class_prob)
             print(class_Unlabeled[i][:10])
 
         print("each error: ",len(class_Unlabeled[0]),len(class_Unlabeled[1]),len(class_Unlabeled[2]),len(class_Unlabeled[3]))
         print("each class_thresh : ",class_threshold)
 
-        #class_threshold=[0.999999,0.99,0.99996245,0.999998]
-
+        #class_threshold[0] = 1
         ##########################################################################
         unlabeled_gen, filenames = self.data.test_unlabeled_gen(batch_size = batch_size)
         class_Unlabeled = [[], [], [], []]
         output = self.network.predict_generator(unlabeled_gen)
         pred = np.argmax(output, axis=1)
-        for metadata in zip(filenames, pred, output):
+        for metadata in zip(unlabeled_gen.filenames, pred, output):
             pred_prob = max(metadata[2])
             if class_threshold[metadata[1]] < pred_prob:
                 class_Unlabeled[metadata[1]].append(metadata[0])

@@ -8,8 +8,8 @@ config = {
     'model': BasicModel,
     'fit_kwargs': {
         'batch_size': 64,
-        'epochs_finetune': 10,
-        'epochs_full': 10,
+        'epochs_finetune': 7,
+        'epochs_full': 7,
         'debug': False
     },
     'model_kwargs': {
