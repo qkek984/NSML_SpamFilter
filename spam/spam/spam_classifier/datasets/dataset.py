@@ -67,7 +67,6 @@ class Dataset:
         train_datagen = ImageDataGenerator(
             preprocessing_function=preprocess_input,
             horizontal_flip=True,
-            vertical_flip=True,
             zoom_range=0.2,
             width_shift_range=0.1,
             height_shift_range=0.1,
@@ -98,7 +97,6 @@ class Dataset:
         train_datagen = ImageDataGenerator(
             preprocessing_function=preprocess_input,
             horizontal_flip=True,
-            vertical_flip=True,
             zoom_range=0.2,
             width_shift_range=0.1,
             height_shift_range=0.1,

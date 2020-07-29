@@ -85,14 +85,15 @@ class STModel:
         for i in range(0,len(class_Unlabeled)):
             class_prob = max(class_Unlabeled[i])
 
-            class_threshold.append(max(class_prob,0.95))
+            class_threshold.append(max(class_prob,0.999))
             print("class:",i,", max_prob:",class_prob)
             print(class_Unlabeled[i][:10])
 
+        class_threshold[0] = 1
         print("each error: ",len(class_Unlabeled[0]),len(class_Unlabeled[1]),len(class_Unlabeled[2]),len(class_Unlabeled[3]))
         print("each class_thresh : ",class_threshold)
 
-        #class_threshold[0] = 1
+
         ##########################################################################
         unlabeled_gen, filenames = self.data.test_unlabeled_gen(batch_size = batch_size)
         class_Unlabeled = [[], [], [], []]
