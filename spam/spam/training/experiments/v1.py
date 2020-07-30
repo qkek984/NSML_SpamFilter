@@ -7,8 +7,8 @@ classes = ['normal', 'monotone', 'screenshot', 'unknown']
 config = {
     'model': BasicModel,
     'fit_kwargs': {
-        'batch_size': 64,
-        'epochs_finetune': 15,
+        'batch_size': 32,
+        'epochs_finetune': 10,
         'epochs_full': 10,
         'debug': False
     },

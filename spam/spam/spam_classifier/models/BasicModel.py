@@ -2,7 +2,7 @@ from typing import Callable, List
 
 import keras
 from keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
-from keras.optimizers import SGD, Adam
+from keras.optimizers import SGD, Adam, RMSprop
 import nsml
 import numpy as np
 import pandas as pd
@@ -42,7 +42,7 @@ class BasicModel:
                                    callbacks=self.callbacks(
                                        model_path=model_path_finetune,
                                        model_prefix='last_layer_tuning',
-                                       patience=5,
+                                       patience=8,
                                        val_gen=val_gen,
                                        classes=self.data.classes),
                                    validation_data=val_gen,
@@ -66,7 +66,7 @@ class BasicModel:
                                        model_path=model_path_full,
                                        model_prefix='full_tuning',
                                        val_gen=val_gen,
-                                       patience=10,
+                                       patience=8,
                                        classes=self.data.classes),
                                    validation_data=val_gen,
                                    use_multiprocessing=True,
@@ -74,6 +74,7 @@ class BasicModel:
 
         self.network.load_weights(model_path_full)
         nsml.save(checkpoint='best')
+        print('Done')
         self.metrics(gen=val_gen)
 
     def unfreeze(self) -> None:
@@ -87,6 +88,7 @@ class BasicModel:
     def optimizer(self, stage: str) -> keras.optimizers.Optimizer:
         return {
             'finetune': SGD(lr=1e-4, momentum=0.9),
+            #'finetune': Adam(lr=1e-3),
             'full': Adam(lr=1e-4)
         }[stage]
 

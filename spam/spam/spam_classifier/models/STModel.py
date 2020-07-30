@@ -21,7 +21,9 @@ class STModel:
         self.debug = False
 
     def fit(self, epochs_finetune, epochs_full, batch_size, debug=False):
-        nsml.load(checkpoint='best', session='qkek984/spam-1/85')
+        sessionName = 'qkek984/spam-3/59'
+        nsml.load(checkpoint='best', session=sessionName)
+        print(sessionName, "model load!")
         #nsml.save(checkpoint='saved')
         #exit()
         self.debug = debug
@@ -37,7 +39,7 @@ class STModel:
         val_gen = self.data.ST_val_gen(batch_size)
 
         self.myMetrics(val_gen=val_gen, batch_size=batch_size)  # do self training
-        print("model 1 load!")
+
         return self.data.base_dir
 
     def loss(self) -> str:
@@ -85,17 +87,16 @@ class STModel:
         for i in range(0,len(class_Unlabeled)):
             class_prob = max(class_Unlabeled[i])
 
-            class_threshold.append(max(class_prob,0.999))
+            class_threshold.append(max(class_prob,0.99))
             print("class:",i,", max_prob:",class_prob)
             print(class_Unlabeled[i][:10])
 
-        class_threshold[0] = 1
         print("each error: ",len(class_Unlabeled[0]),len(class_Unlabeled[1]),len(class_Unlabeled[2]),len(class_Unlabeled[3]))
         print("each class_thresh : ",class_threshold)
 
 
         ##########################################################################
-        unlabeled_gen, filenames = self.data.test_unlabeled_gen(batch_size = batch_size)
+        unlabeled_gen = self.data.test_unlabeled_gen(batch_size = batch_size)
         class_Unlabeled = [[], [], [], []]
         output = self.network.predict_generator(unlabeled_gen)
         pred = np.argmax(output, axis=1)
@@ -103,8 +104,7 @@ class STModel:
             pred_prob = max(metadata[2])
             if class_threshold[metadata[1]] < pred_prob:
                 class_Unlabeled[metadata[1]].append(metadata[0])
-
-        class_Unlabeled[0] = class_Unlabeled[0][:1000]# suppress too much data
+        class_Unlabeled[0] = class_Unlabeled[0][:1500]# suppress too much data
         print("class_Unlabeled: ", len(class_Unlabeled[0]), len(class_Unlabeled[1]), len(class_Unlabeled[2]),
               len(class_Unlabeled[3]))
         self.data.insertUnlabeledData(class_Unlabeled)

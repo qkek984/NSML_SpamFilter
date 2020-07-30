@@ -16,7 +16,7 @@ def train(experiment_name: str = 'v1', pause: bool = False, mode: str = 'train',
         nsml.paused(scope=locals())
     if mode == 'train':
         base_dir = model.fit(**config['fit_kwargs'])
-    #############
+
 
     config = import_module(f'spam.training.experiments.{experiment_name}').config
     config['model_kwargs']['dataset_kwargs']['base_dir'] = base_dir  # self training add

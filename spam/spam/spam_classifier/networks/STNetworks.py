@@ -23,13 +23,12 @@ def frozen_networks(input_size, n_classes, local_weights=None):
         model_ = efn.EfficientNetB5(
             include_top=False,
             input_tensor=Input(shape=input_size),
-            weights='noisy-student')# remote weight
+            weights='noisy-student')
 
     for layer in model_.layers:
         layer.trainable = False#불러온 모델의 웨이트를 학습하지 않도록 설정
     x = GlobalAveragePooling2D()(model_.layers[-1].output)
     #x = BatchNormalization()(x)
-    #x = Dropout(0.2)(x)
     x = Dense(n_classes, activation='softmax')(x)
     frozen_model = Model(model_.input, x)
 

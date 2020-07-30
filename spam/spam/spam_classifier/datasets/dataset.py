@@ -9,8 +9,7 @@ import keras_preprocessing
 from keras_preprocessing.image import ImageDataGenerator
 
 from keras.applications.inception_resnet_v2 import preprocess_input
-#from keras.applications.xception import preprocess_input
-#from efficientnet import preprocess_input
+from efficientnet.keras import preprocess_input
 
 
 import pandas as pd
@@ -100,7 +99,7 @@ class Dataset:
             zoom_range=0.2,
             width_shift_range=0.1,
             height_shift_range=0.1,
-            validation_split=self.validation_fraction
+            validation_split=0.5
         )
 
         train_generator = train_datagen.flow_from_directory(
@@ -149,7 +148,7 @@ class Dataset:
         metadata = pd.DataFrame({'filename': files})
         gen = datagen.flow_from_dataframe(metadata, directory=f'{self.base_dir}/unlabeled', x_col='filename',
                                           class_mode=None, shuffle=False, batch_size=batch_size)
-        return gen,files
+        return gen
 
     def len(self, dataset):
         """
